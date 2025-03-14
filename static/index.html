@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Punch Clock</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .clock {
+            font-size: 3em;
+            margin: 20px 0;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .button.pause {
+            background-color: #f44336;
+        }
+        .status {
+            margin-top: 20px;
+            font-style: italic;
+        }
+    </style>
+    <script>
+        // Global variables to track clock state
+        let isRunning = false;
+        let totalSeconds = 0;
+        let startTime = 0;
+        let clockInterval;
+        
+        // Format seconds to HH:MM:SS
+        function formatTime(totalSecs) {
+            const hours = Math.floor(totalSecs / 3600);
+            const minutes = Math.floor((totalSecs % 3600) / 60);
+            const seconds = totalSecs % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Update the clock display
+        function updateClockDisplay() {
+            let currentTotalSeconds = totalSeconds;
+            
+            if (isRunning) {
+                // Add elapsed time since start
+                const now = Math.floor(Date.now() / 1000);
+                currentTotalSeconds += (now - startTime);
+            }
+            
+            const timeDisplay = formatTime(currentTotalSeconds);
+            document.getElementById('clock').innerText = timeDisplay;
+            document.title = timeDisplay + " - Punch Clock";
+        }
+        
+        // Start the clock
+        function startClock() {
+            if (!isRunning) {
+                fetch('/start')
+                    .then(response => response.json())
+                    .then(data => {
+                        isRunning = true;
+                        totalSeconds = data.totalSeconds;
+                        startTime = Math.floor(Date.now() / 1000);
+                        
+                        // Update UI
+                        const toggleBtn = document.getElementById('toggleBtn');
+                        toggleBtn.innerText = "Pause";
+                        toggleBtn.className = "button pause";
+                        document.getElementById('status').innerText = "Clock is running";
+                        
+                        // Start interval to update clock display
+                        clockInterval = setInterval(updateClockDisplay, 1000);
+                        updateClockDisplay();
+                    });
+            }
+        }
+        
+        // Pause the clock
+        function pauseClock() {
+            if (isRunning) {
+                fetch('/pause')
+                    .then(response => response.json())
+                    .then(data => {
+                        isRunning = false;
+                        totalSeconds = data.totalSeconds;
+                        clearInterval(clockInterval);
+                        
+                        // Update UI
+                        const toggleBtn = document.getElementById('toggleBtn');
+                        toggleBtn.innerText = "Start";
+                        toggleBtn.className = "button";
+                        document.getElementById('status').innerText = "Clock is paused";
+                        
+                        updateClockDisplay();
+                    });
+            }
+        }
+        
+        // Toggle clock state
+        function toggleClock() {
+            if (isRunning) {
+                pauseClock();
+            } else {
+                startClock();
+            }
+        }
+        
+        // Initialize the page
+        function initializePage() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    isRunning = data.isRunning;
+                    totalSeconds = data.totalSeconds;
+                    document.getElementById('filename').innerText = data.filename;
+                    
+                    if (isRunning) {
+                        startTime = Math.floor(Date.now() / 1000) - data.elapsedSeconds;
+                        
+                        const toggleBtn = document.getElementById('toggleBtn');
+                        toggleBtn.innerText = "Pause";
+                        toggleBtn.className = "button pause";
+                        document.getElementById('status').innerText = "Clock is running";
+                        
+                        // Start interval to update clock display
+                        clockInterval = setInterval(updateClockDisplay, 1000);
+                    } else {
+                        document.getElementById('status').innerText = "Clock is paused";
+                    }
+                    
+                    updateClockDisplay();
+                });
+        }
+        
+        // Initialize when the page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</head>
+<body>
+    <h1>Punch Clock</h1>
+    <div class="clock" id="clock">00:00:00</div>
+    <button id="toggleBtn" class="button" onclick="toggleClock()">Start</button>
+    <div class="status" id="status">Clock is paused</div>
+    <div class="file-info">Data saved to: <span id="filename"></span></div>
+</body>
+</html>
