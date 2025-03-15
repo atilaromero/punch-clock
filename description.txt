@@ -1,0 +1,12 @@
+
+Go webserver application for a punch clock.
+
+Requirements:
+* can start and pause the clock
+* shows the current worked hours,min,sec in the page tab name
+* saves data in a tab split csv file of started paused times. Fields: start/pause, worked time in hh:mm:ss, iso timestamp
+* should save the csv using the current date, as yyyy-MM-dd.csv
+* should load existing file for the current day 
+* serve a static file instead of a dynamic one
+* have a status endpoint for initial page data
+* dont call status at every second. instead call start and pause endpoints when the user do so.

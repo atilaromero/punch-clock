@@ -22,7 +22,11 @@ type PunchClock struct {
 	StartTime      time.Time
 	TotalWorkedSec int64
 	LastSaveTime   time.Time
-	Filename       string
+}
+
+func (p *PunchClock) Filename() string {
+	today := time.Now().Format("2006-01-02")
+	return today + ".csv"
 }
 
 func (p *PunchClock) start() {
@@ -58,8 +62,9 @@ func (p *PunchClock) formatWorkedTime() string {
 }
 
 func (p *PunchClock) saveRecord(action string) {
+	filename := p.Filename()
 	// Create the file if it doesn't exist
-	file, err := os.OpenFile(p.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Printf("Error opening file: %v", err)
 		return
@@ -82,9 +87,12 @@ func (p *PunchClock) saveRecord(action string) {
 }
 
 func (p *PunchClock) loadFromFile() {
-	file, err := os.Open(p.Filename)
+	filename := p.Filename()
+	file, err := os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
+			p.TotalWorkedSec = 0
+			p.IsRunning = false
 			log.Printf("No existing file for today, starting fresh")
 			return
 		}
@@ -111,7 +119,7 @@ func (p *PunchClock) loadFromFile() {
 	lastRecord := records[len(records)-1]
 	action := lastRecord[0]
 	timeStr := lastRecord[1]
-	
+
 	// Parse the last worked time
 	parts := strings.Split(timeStr, ":")
 	if len(parts) == 3 {
@@ -149,69 +157,68 @@ type ClockResponse struct {
 
 func main() {
 	// Initialize the punch clock
-	today := time.Now().Format("2006-01-02")
-	filename := today + ".csv"
-	
 	clock := &PunchClock{
 		IsRunning:      false,
 		TotalWorkedSec: 0,
-		Filename:       filename,
 	}
-	
+
 	// Load existing data if available
 	clock.loadFromFile()
-	
+
 	// Set up HTTP handlers
 	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/", fs)
-	
+
 	// Start endpoint
 	http.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
+		clock.loadFromFile()
 		clock.start()
-		
+
 		response := ClockResponse{
 			TotalSeconds: clock.TotalWorkedSec,
 		}
-		
+
 		w.Header().Set(contentTypeHeader, contentTypeJSON)
 		json.NewEncoder(w).Encode(response)
 	})
-	
+
 	// Pause endpoint
 	http.HandleFunc("/pause", func(w http.ResponseWriter, r *http.Request) {
+		clock.loadFromFile()
 		clock.pause()
-		
+
 		response := ClockResponse{
 			TotalSeconds: clock.TotalWorkedSec,
 		}
-		
+
 		w.Header().Set(contentTypeHeader, contentTypeJSON)
 		json.NewEncoder(w).Encode(response)
 	})
-	
+
 	// Status endpoint for initial page load
 	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		clock.loadFromFile()
 		var elapsedSeconds int64 = 0
 		if clock.IsRunning {
 			elapsedSeconds = int64(time.Since(clock.StartTime).Seconds())
 		}
-		
+
 		response := StatusResponse{
 			IsRunning:      clock.IsRunning,
 			TotalSeconds:   clock.TotalWorkedSec,
 			ElapsedSeconds: elapsedSeconds,
-			Filename:       filename,
+			Filename:       clock.Filename(),
 		}
-		
+
 		w.Header().Set(contentTypeHeader, contentTypeJSON)
 		json.NewEncoder(w).Encode(response)
 	})
-	
+
 	// Start the server
 	port := 8080
 	fmt.Printf("Starting punch clock server on http://localhost:%d\n", port)
-	fmt.Printf("Using data file: %s\n", filename)
+	fmt.Printf("Using data file: %s\n", clock.Filename())
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
