@@ -36,6 +36,26 @@
             margin-top: 20px;
             font-style: italic;
         }
+        .history-section {
+            margin-top: 40px;
+            text-align: left;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .history-table th, .history-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .history-table th {
+            background-color: #f2f2f2;
+        }
+        .history-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
     </style>
     <script>
         // Global variables to track clock state
@@ -107,6 +127,8 @@
                         document.getElementById('status').innerText = "Clock is paused";
                         
                         updateClockDisplay();
+                        // Refresh history after pausing
+                        loadHistory();
                     });
             }
         }
@@ -118,6 +140,33 @@
             } else {
                 startClock();
             }
+        }
+        
+        // Load and display work history
+        function loadHistory() {
+            fetch('/history')
+                .then(response => response.json())
+                .then(data => {
+                    const historyTable = document.getElementById('historyTable');
+                    // Clear existing rows except header
+                    while (historyTable.rows.length > 1) {
+                        historyTable.deleteRow(1);
+                    }
+                    
+                    // Add history data to table
+                    data.forEach(entry => {
+                        const row = historyTable.insertRow();
+                        
+                        const dateCell = row.insertCell(0);
+                        dateCell.textContent = entry.date;
+                        
+                        const hoursCell = row.insertCell(1);
+                        hoursCell.textContent = entry.hours.toFixed(1);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading history:', error);
+                });
         }
         
         // Initialize the page
@@ -144,6 +193,9 @@
                     }
                     
                     updateClockDisplay();
+                    
+                    // Load history data
+                    loadHistory();
                 });
         }
         
@@ -157,5 +209,16 @@
     <button id="toggleBtn" class="button" onclick="toggleClock()">Start</button>
     <div class="status" id="status">Clock is paused</div>
     <div class="file-info">Data saved to: <span id="filename"></span></div>
+    
+    <div class="history-section">
+        <h2>Work History</h2>
+        <table class="history-table" id="historyTable">
+            <tr>
+                <th>Date</th>
+                <th>Hours</th>
+            </tr>
+            <!-- History data will be inserted here -->
+        </table>
+    </div>
 </body>
 </html>

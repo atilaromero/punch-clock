@@ -4,7 +4,9 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -149,4 +151,96 @@ func loadFromFile() (*PunchClock, error) {
 	}
 
 	return p, nil
+}
+
+// HistoryEntry represents a single day's work history
+type HistoryEntry struct {
+	Date  string  `json:"date"`
+	Hours float64 `json:"hours"`
+}
+
+// GetHistoryData reads all CSV files in the current directory and returns the history data
+func GetHistoryData() ([]HistoryEntry, error) {
+	files, err := os.ReadDir(".")
+	if err != nil {
+		return nil, fmt.Errorf("error reading directory: %w", err)
+	}
+
+	var history []HistoryEntry
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		name := file.Name()
+		if !strings.HasSuffix(name, ".csv") {
+			continue
+		}
+
+		// Try to parse the date from the filename (format: YYYY-MM-DD.csv)
+		date := strings.TrimSuffix(name, ".csv")
+		if len(date) != 10 || date[4] != '-' || date[7] != '-' {
+			continue // Skip files that don't match the expected date format
+		}
+
+		// Read the file to get the total hours worked
+		entry, err := getHistoryEntryFromFile(name, date)
+		if err != nil {
+			log.Printf("Error processing file %s: %v", name, err)
+			continue
+		}
+
+		history = append(history, entry)
+	}
+
+	// Sort history by date (newest first)
+	sort.Slice(history, func(i, j int) bool {
+		return history[i].Date > history[j].Date
+	})
+
+	return history, nil
+}
+
+// getHistoryEntryFromFile reads a single CSV file and extracts the total hours worked
+func getHistoryEntryFromFile(filename, date string) (HistoryEntry, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.Comma = ','
+	reader.FieldsPerRecord = 3
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+
+	if len(records) == 0 {
+		return HistoryEntry{Date: date, Hours: 0}, nil
+	}
+
+	// Get the last record to find the total time worked
+	lastRecord := records[len(records)-1]
+	timeStr := lastRecord[1] // Format: HH:MM:SS
+
+	// Parse the time string
+	parts := strings.Split(timeStr, ":")
+	if len(parts) != 3 {
+		return HistoryEntry{}, fmt.Errorf("invalid time format: %s", timeStr)
+	}
+
+	hours, _ := strconv.Atoi(parts[0])
+	minutes, _ := strconv.Atoi(parts[1])
+	seconds, _ := strconv.Atoi(parts[2])
+
+	// Convert to decimal hours
+	totalHours := float64(hours) + float64(minutes)/60.0 + float64(seconds)/3600.0
+
+	// Round to 1 decimal place
+	totalHours = math.Round(totalHours*10) / 10
+
+	return HistoryEntry{Date: date, Hours: totalHours}, nil
 }

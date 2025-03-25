@@ -74,3 +74,17 @@ func StatusHandler() http.HandlerFunc {
 		json.NewEncoder(w).Encode(response)
 	}
 }
+
+// HistoryHandler handles the /history endpoint
+func HistoryHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		history, err := GetHistoryData()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting history data: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set(contentTypeHeader, contentTypeJSON)
+		json.NewEncoder(w).Encode(history)
+	}
+}

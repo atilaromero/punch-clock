@@ -16,6 +16,7 @@ func main() {
 	http.HandleFunc("/start", StartHandler())
 	http.HandleFunc("/pause", PauseHandler())
 	http.HandleFunc("/status", StatusHandler())
+	http.HandleFunc("/history", HistoryHandler())
 
 	// Start the server
 	port := 8080
